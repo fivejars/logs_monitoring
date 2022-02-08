@@ -1,0 +1,5 @@
+logs_monitoring.settings:
+  title: 'Logs monitoring'
+  route_name: logs_monitoring.settings
+  description: 'Settings form for logs monitoring'
+  parent: system.admin_config_development

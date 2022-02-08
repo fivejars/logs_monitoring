@@ -1,0 +1,7 @@
+logs_monitoring.settings:
+  path: '/admin/config/development/logs-monitoring-settings'
+  defaults:
+    _title: 'Logs monitoring'
+    _form: '\Drupal\logs_monitoring\Form\LogsMonitoringSettingsForm'
+  requirements:
+    _permission: 'administer site configuration'
