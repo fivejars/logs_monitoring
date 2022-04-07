@@ -30,36 +30,141 @@ class LogsMonitoringSettingsForm extends ConfigFormBase {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    $config = $this->config('logs_monitoring.settings');
+    $config = $this->config('logs_monitoring.settings')->get('log_configs');
 
-    $form['path_to_logs'] = [
-      '#type' => 'textarea',
-      '#title' => $this->t('Path to the logs'),
-      '#default_value' => $config->get('path_to_logs') ?? '',
-      '#description' => $this->t('Absolute path to the log file. Each path to the log should be from a new line.'),
-      '#rows' => 7,
-      '#required' => TRUE,
+    // Get the number of log configs from configuration (on form load).
+    // Otherwise, from in the form state(ajax request).
+    if (!$form_state->get('num_lines') && count($config)) {
+      $form_state->set('num_lines', count($config));
+    }
+    $num_lines = $form_state->get('num_lines');
+    if ($num_lines === NULL) {
+      $form_state->set('num_lines', 1);
+      $num_lines = $form_state->get('num_lines');
+    }
+
+    // Get a list of fields that were removed.
+    $removed_fields = $form_state->get('removed_fields');
+    // If no fields have been removed yet we use an empty array.
+    if ($removed_fields === NULL) {
+      $form_state->set('removed_fields', []);
+      $removed_fields = $form_state->get('removed_fields');
+    }
+
+    $form['#tree'] = TRUE;
+    $form['config_fieldset'] = [
+      '#type' => 'fieldset',
+      '#title' => $this->t('Logs monitoring configs'),
+      '#prefix' => '<div id="configs-fieldset-wrapper">',
+      '#suffix' => '</div>',
     ];
 
-    $form['search_words'] = [
-      '#type' => 'textarea',
-      '#title' => $this->t('Error words to search'),
-      '#description' => $this->t('Each word/phrase should be from a new line.'),
-      '#default_value' => $config->get('search_words') ?? '',
-      '#rows' => 7,
-      '#required' => TRUE,
-    ];
+    for ($i = 0; $i < $num_lines; $i++) {
+      // Check if field was removed.
+      if (in_array($i, $removed_fields)) {
+        continue;
+      }
 
-    $form['lines_count'] = [
-      '#type' => 'number',
-      '#title' => $this->t('Count of lines to read'),
-      '#description' => $this->t('The count of lines from the end in which the search will be performed.'),
-      '#default_value' => $config->get('lines_count') ?? 200,
-      '#min' => 1,
-      '#required' => TRUE,
+      $form['config_fieldset'][$i] = [
+        '#type' => 'fieldset',
+        '#title' => $this->t('Log config') . ' ' . ($i + 1),
+        'path_to_logs' => [
+          '#type' => 'textfield',
+          '#title' => $this->t('Path to the log'),
+          '#default_value' => $config[$i]['path_to_logs'] ?? '',
+          '#description' => $this->t('Absolute path to the log file.'),
+        ],
+        'search_words' => [
+          '#type' => 'textarea',
+          '#title' => $this->t('Error words to search'),
+          '#description' => $this->t('Each word/phrase should be from a new line.'),
+          '#default_value' => $config[$i]['search_words'] ?? '',
+          '#rows' => 5,
+        ],
+        'lines_count' => [
+          '#type' => 'number',
+          '#title' => $this->t('Count of lines to read'),
+          '#description' => $this->t('The count of lines from the end in which the search will be performed.'),
+          '#default_value' => $config[$i]['lines_count'] ?? 200,
+          '#min' => 1,
+        ],
+        'actions' => [
+          '#type' => 'submit',
+          '#value' => $this->t('Remove'),
+          '#name' => $i,
+          '#submit' => ['::removeCallback'],
+          '#ajax' => [
+            'callback' => '::addmoreCallback',
+            'wrapper' => 'configs-fieldset-wrapper',
+          ],
+        ],
+      ];
+    }
+
+    $form['actions']['add_config'] = [
+      '#type' => 'submit',
+      '#value' => $this->t('Add one more'),
+      '#submit' => ['::addOne'],
+      '#ajax' => [
+        'callback' => '::addmoreCallback',
+        'wrapper' => 'configs-fieldset-wrapper',
+      ],
     ];
 
     return parent::buildForm($form, $form_state);
+  }
+
+  /**
+   * Callback for both ajax buttons.
+   *
+   * Selects and returns the config's fieldset.
+   */
+  public function addmoreCallback(array &$form, FormStateInterface $form_state) {
+    return $form['config_fieldset'];
+  }
+
+  /**
+   * Submit handler for the "add-one-more" button.
+   */
+  public function addOne(array &$form, FormStateInterface $form_state) {
+    $num_field = $form_state->get('num_lines');
+    $form_state->set('num_lines', $num_field + 1);
+    $form_state->setRebuild();
+  }
+
+  /**
+   * Submit handler for the "remove" button.
+   */
+  public function removeCallback(array &$form, FormStateInterface $form_state) {
+    $trigger = $form_state->getTriggeringElement();
+    $indexToRemove = $trigger['#name'];
+
+    // Remove the fieldset from $form.
+    unset($form['config_fieldset'][$indexToRemove]);
+
+    // Keep track of removed fields, so we can add new fields at the bottom.
+    $removed_fields = $form_state->get('removed_fields');
+    $removed_fields[] = $indexToRemove;
+    $form_state->set('removed_fields', $removed_fields);
+
+    // Rebuild form_state.
+    $form_state->setRebuild();
+  }
+
+  /**
+   * All config values should be filled.
+   */
+  public function validateForm(array &$form, FormStateInterface $form_state) {
+    $trigger = $form_state->getTriggeringElement();
+    if (isset($trigger['#button_type']) && $trigger['#button_type'] === 'primary') {
+      foreach ($form_state->getValue('config_fieldset') as $key => $config) {
+        foreach ($config as $config_key => $config_value) {
+          if (empty($config_value)) {
+            $form_state->setError($form['config_fieldset'][$key][$config_key], $this->t("Config value can't be empty"));
+          }
+        }
+      }
+    }
   }
 
   /**
@@ -67,9 +172,13 @@ class LogsMonitoringSettingsForm extends ConfigFormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $config = $this->config('logs_monitoring.settings');
-    $config->set('path_to_logs', $form_state->getValue('path_to_logs'))->save();
-    $config->set('search_words', $form_state->getValue('search_words'))->save();
-    $config->set('lines_count', $form_state->getValue('lines_count'))->save();
+
+    $log_configs = $form_state->getValue('config_fieldset');
+    foreach ($log_configs as &$log_config) {
+      unset($log_config['actions']);
+    }
+
+    $config->set('log_configs', $log_configs)->save();
     parent::submitForm($form, $form_state);
   }
 

@@ -4,8 +4,8 @@
 namespace Drupal\logs_monitoring\Plugin\rest\resource;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\rest\Plugin\ResourceBase;
 use Drupal\logs_monitoring\Utils\FileReader;
+use Drupal\rest\Plugin\ResourceBase;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -70,14 +70,13 @@ class LogsMonitoring extends ResourceBase {
     $config = $this->configFactory->getEditable('logs_monitoring.settings');
     $result = [];
     $status_code = 200;
-    $logs_path = explode(PHP_EOL, $config->get('path_to_logs'));
-    $words = explode(PHP_EOL, $config->get('search_words'));
-    array_walk($words, function (&$item) {
-      $item = trim($item);
-    });
 
-    foreach ($logs_path as $path) {
-      $path = trim($path);
+    foreach ($config->get('log_configs') as $log_config) {
+      $path = trim($log_config['path_to_logs']);
+      $words = explode(PHP_EOL, $log_config['search_words']);
+      array_walk($words, function (&$item) {
+        $item = trim($item);
+      });
       if (file_exists($path)) {
         $is_error = $this->isErrorFound($path, (int) $config->get('lines_count'), $words);
         $result[basename($path)] = [

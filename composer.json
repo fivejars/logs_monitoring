@@ -1,0 +1,7 @@
+{
+    "name": "fivejars/logs_monitoring",
+    "description": "Logs monitoring",
+    "type": "drupal-module",
+    "license": "GPL-2.0+",
+    "minimum-stability": "dev"
+}

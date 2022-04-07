@@ -1,3 +1,1 @@
-path_to_logs: ''
-lines_count: 1
-search_words: ''
+log_configs: null
