@@ -78,7 +78,7 @@ class LogsMonitoring extends ResourceBase {
         $item = trim($item);
       });
       if (file_exists($path)) {
-        $is_error = $this->isErrorFound($path, (int) $config->get('lines_count'), $words);
+        $is_error = $this->isErrorFound($path, (int) $log_config['lines_count'], $words);
         $result[basename($path)] = [
           'status' => $is_error ? 'NOK' : 'OK',
           'last_modified' => date('Y-m-d H:i:s', filemtime($path)),
