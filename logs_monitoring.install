@@ -11,19 +11,21 @@ use Drupal\user\RoleInterface;
 /**
  * Implements hook_install().
  */
-function logs_monitoring_install() {
+function logs_monitoring_install($is_syncing) {
   // Add permissions to anonymous and authenticated roles.
-  $permissions = [
-    'restful get logs_monitoring',
-  ];
-  $roles = Role::loadMultiple([
-    RoleInterface::ANONYMOUS_ID,
-    RoleInterface::AUTHENTICATED_ID
-  ]);
-  foreach ($roles as $role) {
-    foreach ($permissions as $permission) {
-      $role->grantPermission($permission);
+  if (!$is_syncing) {
+    $permissions = [
+      'restful get logs_monitoring',
+    ];
+    $roles = Role::loadMultiple([
+      RoleInterface::ANONYMOUS_ID,
+      RoleInterface::AUTHENTICATED_ID
+    ]);
+    foreach ($roles as $role) {
+      foreach ($permissions as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
     }
-    $role->save();
   }
 }
