@@ -77,8 +77,15 @@ class LogsMonitoring extends ResourceBase {
       array_walk($words, function (&$item) {
         $item = trim($item);
       });
+      $exclude_words = [];
+      if (!empty($log_config['exclude_words'])) {
+        $exclude_words = explode(PHP_EOL, $log_config['exclude_words']);
+        array_walk($exclude_words, function (&$item) {
+          $item = trim($item);
+        });
+      }
       if (file_exists($path)) {
-        $is_error = $this->isErrorFound($path, (int) $log_config['lines_count'], $words);
+        $is_error = $this->isErrorFound($path, (int) $log_config['lines_count'], $words, $exclude_words);
         $result[basename($path)] = [
           'status' => $is_error ? 'NOK' : 'OK',
           'last_modified' => date('Y-m-d H:i:s', filemtime($path)),
@@ -106,15 +113,35 @@ class LogsMonitoring extends ResourceBase {
    *   Count of lines in the end, where search will be performed.
    * @param array $words
    *   Words which indicate an error.
+   * @param array $exclude_words
+   *   Words to exclude from search.
    *
    * @return bool
    *   Indicate if error found.
    */
-  protected function isErrorFound(string $filepath, int $lines, array $words): bool {
+  protected function isErrorFound(string $filepath, int $lines, array $words, array $exclude_words = []): bool {
     $tail = FileReader::tailCustom($filepath, $lines);
 
+    if (!empty($exclude_words)) {
+      $log_lines = explode(PHP_EOL, $tail);
+      $filtered_lines = [];
+      foreach ($log_lines as $line) {
+        $exclude_line = FALSE;
+        foreach ($exclude_words as $exclude_word) {
+          if (!empty($exclude_word) && mb_stripos($line, $exclude_word) !== FALSE) {
+            $exclude_line = TRUE;
+            break;
+          }
+        }
+        if (!$exclude_line) {
+          $filtered_lines[] = $line;
+        }
+      }
+      $tail = implode(PHP_EOL, $filtered_lines);
+    }
+
     foreach ($words as $word) {
-      if (mb_stripos($tail, $word) !== FALSE) {
+      if (!empty($word) && mb_stripos($tail, $word) !== FALSE) {
         return TRUE;
       }
     }

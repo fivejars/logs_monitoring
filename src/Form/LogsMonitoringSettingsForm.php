@@ -81,6 +81,13 @@ class LogsMonitoringSettingsForm extends ConfigFormBase {
           '#default_value' => $config[$i]['search_words'] ?? '',
           '#rows' => 5,
         ],
+        'exclude_words' => [
+          '#type' => 'textarea',
+          '#title' => $this->t('Words to exclude'),
+          '#description' => $this->t('Lines containing these words will be excluded. Each word/phrase should be from a new line.'),
+          '#default_value' => $config[$i]['exclude_words'] ?? '',
+          '#rows' => 5,
+        ],
         'lines_count' => [
           '#type' => 'number',
           '#title' => $this->t('Count of lines to read'),
@@ -159,7 +166,7 @@ class LogsMonitoringSettingsForm extends ConfigFormBase {
     if (isset($trigger['#button_type']) && $trigger['#button_type'] === 'primary') {
       foreach ($form_state->getValue('config_fieldset') as $key => $config) {
         foreach ($config as $config_key => $config_value) {
-          if (empty($config_value)) {
+          if ($config_key !== 'exclude_words' && empty($config_value)) {
             $form_state->setError($form['config_fieldset'][$key][$config_key], $this->t("Config value can't be empty"));
           }
         }
